@@ -1,7 +1,7 @@
 {
   "name": "@x1a0f3n9/dshmarket",
   "description": "Visual plugin market inside DeepSeek Harness \u2014 browse, search, and one-click install community plugins. \u00b7 DSH \u53ef\u89c6\u5316\u63d2\u4ef6\u5e02\u573a\uff1a\u901b\u4e00\u901b\uff0c\u70b9\u4e00\u4e0b\uff0c\u88c5\u597d\u3002",
-  "version": "1.44.0",
+  "version": "1.44.0-xfdsh.3",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
