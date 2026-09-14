@@ -1,4 +1,4 @@
-window.__ModuleLoader__.load({ id: "dshmarket", factory: (require) => {
+window.__ModuleLoader__.load({ id: "@x1a0f3n9/dshmarket", factory: (require) => {
 
 
 		var module = { exports: {} };
