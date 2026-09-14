@@ -45,6 +45,12 @@
     "@deepseek-ai/schemastery": "^3.18.1"
   },
   "dsh": {
+    "plugin": {
+      "title": "Plugin market",
+      "titleZh": "插件市场",
+      "description": "Browse and install community dsh plugins.",
+      "descriptionZh": "浏览并安装社区 dsh 插件。"
+    },
     "bundle": {
       "patch": "./cordis.patch.yml"
     },
