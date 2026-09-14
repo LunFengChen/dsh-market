@@ -38,6 +38,7 @@ permissions:
 
 jobs:
   publish:
+    if: ${{ !contains(github.ref, 'xfdsh') }}
     runs-on: ubuntu-latest
     env:
       DEV: ${{ github.event_name == 'workflow_dispatch' }}
