@@ -8,7 +8,7 @@ import { DIST_TAG, type Channel } from './channels.ts'
 import { resolveHeadCommit } from './accelerate.ts'
 import { marketFetch } from './net.ts'
 import { activeRegion } from './regions.ts'
-import { profileDir, readInstalled, readInstalledVersion, readLockCommits, readPrebundledPlugins } from './profile.ts'
+import { hostModuleRoots, profileDir, readInstalled, readInstalledVersion, readLockCommits, readPrebundledPlugins } from './profile.ts'
 import { githubCommitOfTarget, githubRefOfTarget, repoOfTarget } from './sources.ts'
 
 export interface UpdateStatus {
@@ -269,7 +269,7 @@ export async function checkUpdates(
     return updatesCache.data
   }
   const installed = {
-    ...readPrebundledPlugins(profile, activeProfileDir),
+    ...readPrebundledPlugins(profile, activeProfileDir, hostModuleRoots()),
     ...readInstalled(profile, activeProfileDir),
   }
   const lockCommits = readLockCommits(profile, activeProfileDir)

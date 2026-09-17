@@ -5,6 +5,7 @@
  */
 
 import { existsSync, readdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
 import { resolveDshHome } from './home-paths.ts'
@@ -72,16 +73,78 @@ export function readInstalled(profile: string, explicitDir?: string): Record<str
 }
 
 /**
+ * Parse a package.json file, or `null` when it is missing or not JSON.
+ * @param path - absolute path of the file.
+ * @returns the parsed value, or `null`.
+ */
+function readPackageJsonFile(path: string): unknown | null {
+  try {
+    return JSON.parse(readFileSync(path, 'utf8')) as unknown
+  } catch {
+    // Missing or malformed package.json is treated as absence.
+    return null
+  }
+}
+
+/**
+ * CLI / host entry files Node can `createRequire` from for source-launched bundles.
+ * @returns the current process entry path, or an empty list.
+ */
+export function hostModuleRoots(): string[] {
+  const entry = process.argv[1]
+  return typeof entry === 'string' && entry !== '' ? [entry] : []
+}
+
+/**
+ * Load a selected bundle's package.json from the profile install tree.
+ *
+ * Source-launched hosts often hoist the Web bundle to an ancestor
+ * `node_modules` (or resolve it through the CLI package) instead of
+ * `profile/node_modules/<bundle>`. Direct reads miss that tree; Node
+ * module resolution from the profile package.json does not.
+ * @param profileDirectory - resolved profile directory.
+ * @param bundle - selected `dsh.profile.bundles` package name.
+ * @param moduleRoots - extra files to `createRequire` from (the CLI entry).
+ * @returns the parsed manifest, or `null` when the bundle is not installed.
+ */
+export function resolveBundleManifest(
+  profileDirectory: string,
+  bundle: string,
+  moduleRoots: readonly string[] = [],
+): unknown | null {
+  const direct = readPackageJsonFile(join(profileDirectory, 'node_modules', bundle, 'package.json'))
+  if (direct !== null) return direct
+  const roots = [join(profileDirectory, 'package.json'), ...moduleRoots]
+  for (const root of roots) {
+    if (root === '') continue
+    try {
+      return createRequire(root)(`${bundle}/package.json`) as unknown
+    } catch {
+      // This root does not resolve the selected bundle.
+    }
+  }
+  return null
+}
+
+/**
  * Plugins declared on selected profile bundles' `dsh.bundle.plugins`.
  *
  * The Web bundle ships these as nested dependencies. They are not profile
  * `dependencies`, so readInstalled() does not list them.
+ * @param profile - profile name.
+ * @param explicitDir - host-authoritative profile directory, when set.
+ * @param moduleRoots - extra `createRequire` roots used by source-launched hosts.
+ * @returns catalog `packageName` → bundle dependency spec.
  */
-export function readPrebundledPlugins(profile: string, explicitDir?: string): Record<string, string> {
+export function readPrebundledPlugins(
+  profile: string,
+  explicitDir?: string,
+  moduleRoots: readonly string[] = [],
+): Record<string, string> {
   const dir = profileDir(profile, explicitDir)
   const installed: Record<string, string> = {}
   for (const bundle of readProfileBundles(dir)) {
-    const manifest = readInstalledManifest(profile, bundle, explicitDir)
+    const manifest = resolveBundleManifest(dir, bundle, moduleRoots)
     if (manifest === null || typeof manifest !== 'object' || Array.isArray(manifest)) continue
     const record = manifest as {
       dependencies?: unknown

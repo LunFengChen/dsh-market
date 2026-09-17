@@ -58,6 +58,22 @@ describe('installedForCatalog', () => {
       jailbreak: 'link:/tmp/jailbreak',
     })
   })
+
+  it('marks the official catalog card installed for a prebundled fork of the same name', () => {
+    const official = plugin({
+      name: 'dsh-context',
+      npm: 'dsh-context',
+      url: 'https://github.com/bowenliang123/dsh-context',
+    })
+    const catalog = installedForCatalog({}, [], ['dsh-context'])
+    expect(isInstalled(official, catalog, {}, [official])).toBe(true)
+    expect(isInstalled(
+      official,
+      { 'dsh-context': 'github:LunFengChen/dsh-context#v0.49.6' },
+      {},
+      [official],
+    )).toBe(false)
+  })
 })
 
 describe('matchInstalledName / isInstalled', () => {

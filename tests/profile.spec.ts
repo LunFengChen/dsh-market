@@ -137,6 +137,38 @@ describe('readPrebundledPlugins', () => {
     writeProfile({ dsh: { profile: { bundles: ['@x1a0f3n9/dsh-web-app'] } } })
     expect(readPrebundledPlugins('web')).toEqual({})
   })
+
+  it('resolves a bundle hoisted to an ancestor node_modules', () => {
+    const dir = writeProfile({ dsh: { profile: { bundles: ['@x1a0f3n9/dsh-web-app'] } } })
+    const hoist = join(dirname(dir), 'node_modules', '@x1a0f3n9', 'dsh-web-app')
+    mkdirSync(hoist, { recursive: true })
+    writeFileSync(join(hoist, 'package.json'), JSON.stringify({
+      name: '@x1a0f3n9/dsh-web-app',
+      dependencies: { 'dsh-context': 'github:LunFengChen/dsh-context#v0.49.6' },
+      dsh: { bundle: { plugins: [{ packageName: 'dsh-context' }] } },
+    }))
+    expect(readPrebundledPlugins('web')).toEqual({
+      'dsh-context': 'github:LunFengChen/dsh-context#v0.49.6',
+    })
+  })
+
+  it('resolves a bundle through an extra module root', () => {
+    writeProfile({ dsh: { profile: { bundles: ['@x1a0f3n9/dsh-web-app'] } } })
+    const root = mkdtempSync(join(tmpdir(), 'dshm-cli-'))
+    const pkg = join(root, 'package.json')
+    writeFileSync(pkg, JSON.stringify({ name: 'cli-entry' }))
+    const bundleDir = join(root, 'node_modules', '@x1a0f3n9', 'dsh-web-app')
+    mkdirSync(bundleDir, { recursive: true })
+    writeFileSync(join(bundleDir, 'package.json'), JSON.stringify({
+      name: '@x1a0f3n9/dsh-web-app',
+      dependencies: { dshmarket: 'github:LunFengChen/dsh-market#v1.44.2' },
+      dsh: { bundle: { plugins: [{ packageName: 'dshmarket' }] } },
+    }))
+    expect(readPrebundledPlugins('web', undefined, [pkg])).toEqual({
+      dshmarket: 'github:LunFengChen/dsh-market#v1.44.2',
+    })
+    rmSync(root, { recursive: true, force: true })
+  })
 })
 
 describe('dropFromManifest (half-uninstall reconcile)', () => {
