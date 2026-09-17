@@ -45,6 +45,19 @@ describe('installedForCatalog', () => {
       managed: '^2.0.0',
     })
   })
+
+  it('adds prebundled catalog packages and unscoped aliases as presence', () => {
+    expect(installedForCatalog(
+      { jailbreak: 'link:/tmp/jailbreak' },
+      [],
+      ['@x1a0f3n9/dsh-session-timeline', 'dsh-context'],
+    )).toEqual({
+      '@x1a0f3n9/dsh-session-timeline': '*',
+      'dsh-session-timeline': '*',
+      'dsh-context': '*',
+      jailbreak: 'link:/tmp/jailbreak',
+    })
+  })
 })
 
 describe('matchInstalledName / isInstalled', () => {

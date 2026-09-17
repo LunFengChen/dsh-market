@@ -50,6 +50,9 @@ export const INBOX_BUNDLES = new Set([
   '@deepseek-ai/dsh-base',
   '@deepseek-ai/dsh-web-app',
   '@deepseek-ai/dsh-headless',
+  '@x1a0f3n9/dsh-base',
+  '@x1a0f3n9/dsh-web-app',
+  '@x1a0f3n9/dsh-headless',
 ])
 
 /** Community dependencies of the profile (in-box bundles filtered out). */
@@ -66,6 +69,36 @@ export function readInstalled(profile: string, explicitDir?: string): Record<str
   } catch {
     return {}
   }
+}
+
+/**
+ * Plugins declared on selected profile bundles' `dsh.bundle.plugins`.
+ *
+ * The Web bundle ships these as nested dependencies. They are not profile
+ * `dependencies`, so readInstalled() does not list them.
+ */
+export function readPrebundledPlugins(profile: string, explicitDir?: string): Record<string, string> {
+  const dir = profileDir(profile, explicitDir)
+  const installed: Record<string, string> = {}
+  for (const bundle of readProfileBundles(dir)) {
+    const manifest = readInstalledManifest(profile, bundle, explicitDir)
+    if (manifest === null || typeof manifest !== 'object' || Array.isArray(manifest)) continue
+    const record = manifest as {
+      dependencies?: unknown
+      dsh?: { bundle?: { plugins?: unknown } }
+    }
+    const deps = record.dependencies
+    const plugins = record.dsh?.bundle?.plugins
+    if (deps === null || typeof deps !== 'object' || Array.isArray(deps) || !Array.isArray(plugins)) continue
+    for (const plugin of plugins) {
+      if (plugin === null || typeof plugin !== 'object' || Array.isArray(plugin)) continue
+      const packageName = (plugin as { packageName?: unknown }).packageName
+      if (typeof packageName !== 'string' || packageName === '') continue
+      const spec = (deps as Record<string, unknown>)[packageName]
+      if (typeof spec === 'string' && spec !== '') installed[packageName] = spec
+    }
+  }
+  return installed
 }
 
 /**

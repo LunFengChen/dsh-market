@@ -104,6 +104,7 @@ window.__ModuleLoader__.load({ id: "dshmarket", factory: (require) => {
 			installing: "安装中…",
 			installedBadge: "✓ 已安装",
 			alreadyInstalled: "✓ 已安装",
+			prebundledBadge: "预装",
 			restartBanner: "项变更完成，重启 DeepSeek Harness 后生效",
 			uninstall: "卸载",
 			confirmRemove: "确认卸载？",
@@ -634,6 +635,7 @@ window.__ModuleLoader__.load({ id: "dshmarket", factory: (require) => {
 			installing: "Installing…",
 			installedBadge: "✓ Installed",
 			alreadyInstalled: "✓ Installed",
+			prebundledBadge: "Prebundled",
 			restartBanner: "change(s) done — restart DeepSeek Harness to apply",
 			uninstall: "Uninstall",
 			confirmRemove: "Uninstall?",
@@ -1258,15 +1260,34 @@ window.__ModuleLoader__.load({ id: "dshmarket", factory: (require) => {
 			}
 			return categories;
 		}
+		/** Unscoped aliases so `@scope/dsh-foo` matches a registry entry named `dsh-foo`. */
+		function catalogPresenceNames(names) {
+			const aliases = [];
+			for (const name of names) {
+				aliases.push(name);
+				if (!name.startsWith("@")) continue;
+				const slash = name.indexOf("/");
+				if (slash <= 1 || slash >= name.length - 1) continue;
+				aliases.push(name.slice(slash + 1));
+			}
+			return aliases;
+		}
 		/**
-		* Add active profile Bundles as presence-only catalog entries.
+		* Add active profile Bundles and prebundled catalog packages as presence-only
+		* catalog entries.
 		*
 		* The returned map is for catalog matching only. Update and uninstall flows
-		* must keep using the dependency-only map because a Bundle supplied by the
-		* dsh installation is not owned by the profile package manager.
+		* must keep using the dependency-only map because a Bundle or prebundled
+		* plugin supplied by the dsh installation is not owned by the profile
+		* package manager. Presence specs are `*` so a LunFengChen fork still
+		* matches the registry entry for the same unscoped name.
 		*/
-		function installedForCatalog(installed, bundles) {
-			return Object.fromEntries([...bundles.map((name) => [name, "*"]), ...Object.entries(installed)]);
+		function installedForCatalog(installed, bundles, prebundled = []) {
+			return Object.fromEntries([
+				...bundles.map((name) => [name, "*"]),
+				...catalogPresenceNames(prebundled).map((name) => [name, "*"]),
+				...Object.entries(installed)
+			]);
 		}
 		function groupSwitchState(members, disabled) {
 			const list = members ?? [];
@@ -6396,6 +6417,7 @@ window.__ModuleLoader__.load({ id: "dshmarket", factory: (require) => {
 			const [exportError, setExportError] = (0, react.useState)(null);
 			/** Bundle-only plugin names from /dsh-market/installed (picker list). */
 			const [installedBundles, setInstalledBundles] = (0, react.useState)([]);
+			const [prebundled, setPrebundled] = (0, react.useState)({});
 			const bodyRef = (0, react.useRef)(null);
 			/** Hidden file input behind the Import button (a Button can't host an <input>). */
 			const fileInputRef = (0, react.useRef)(null);
@@ -6440,6 +6462,7 @@ window.__ModuleLoader__.load({ id: "dshmarket", factory: (require) => {
 			const refreshInstalled = (0, react.useCallback)((force) => {
 				fetch(api("/dsh-market/installed"), { cache: "no-store" }).then((res) => res.json()).then((body) => {
 					setInstalled(body.installed || {});
+					setPrebundled(installedMap(body.prebundled));
 					setRepoIdentities(installedRepoIdentities(body.repoIdentities));
 					setRepoHints(installedRepoHints(body.repoHints));
 					setInstalledFiles(Array.isArray(body.present) ? body.present : Object.keys(body.installed || {}));
@@ -6461,7 +6484,11 @@ window.__ModuleLoader__.load({ id: "dshmarket", factory: (require) => {
 				fetch(api("/dsh-market/updates") + (force === true ? "?force=1" : ""), { cache: "no-store" }).then((res) => res.json()).then((body) => setUpdates(body.updates || {})).catch(() => {});
 			}, []);
 			/** Active Bundles count as installed in Discover without becoming package-manager targets. */
-			const catalogInstalled = (0, react.useMemo)(() => installedForCatalog(installed, installedBundles), [installed, installedBundles]);
+			const catalogInstalled = (0, react.useMemo)(() => installedForCatalog(installed, installedBundles, Object.keys(prebundled)), [
+				installed,
+				installedBundles,
+				prebundled
+			]);
 			(0, react.useMemo)(() => new Set(disabledNames), [disabledNames]);
 			const favoriteUrlSet = (0, react.useMemo)(() => new Set(favoriteUrls), [favoriteUrls]);
 			/** Effective switch state: market disable list ∪ user-patch-layer disables. */
@@ -8030,7 +8057,11 @@ window.__ModuleLoader__.load({ id: "dshmarket", factory: (require) => {
 			const hostPendingNames = Object.keys(activations).filter((name) => activations[name]?.state === "restart");
 			const showHostPending = hostPendingNames.length > 0 && !restartNoticeDismissed && sessionPendingRestart === 0;
 			const pendingRestart = sessionPendingRestart > 0 ? sessionPendingRestart : showHostPending ? hostPendingNames.length : 0;
-			const displayedInstalled = pendingBackup === null ? installed : {
+			const displayedInstalled = pendingBackup === null ? {
+				...prebundled,
+				...installed
+			} : {
+				...prebundled,
 				...pendingDependencies,
 				...installed
 			};
@@ -9824,6 +9855,7 @@ window.__ModuleLoader__.load({ id: "dshmarket", factory: (require) => {
 								}),
 								render: ([name, spec]) => {
 									const missing = pendingBackup !== null && !installedFiles.includes(name);
+									const marketOwned = Object.hasOwn(installed, name);
 									const entry = data === null ? void 0 : catalogEntryForInstalled(data.plugins, name, String(spec), repoIdentities[name], repoHints[name]);
 									const status = updates[name];
 									const localDev = /^(?:link|file):/i.test(String(spec)) || status?.kind === "linked";
@@ -10074,14 +10106,17 @@ window.__ModuleLoader__.load({ id: "dshmarket", factory: (require) => {
 												/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
 													className: Market_module_css_default.irowTrailing,
 													children: [
-														!missing && status?.sourceMigration !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+														!missing && marketOwned && status?.sourceMigration !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 															variant: "outline",
 															size: "sm",
 															disabled: updatingName !== null || removingName !== null || busyUrl !== null,
 															onClick: () => askSourceMigration(name),
 															children: t("migrateNpm")
 														}),
-														missing ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+														!marketOwned && !missing ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+															className: Market_module_css_default.metaTag,
+															children: t("prebundledBadge")
+														}) : missing ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 															className: Market_module_css_default.metaTag,
 															children: t("notInstalled")
 														}) : updatedNames.includes(name) ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
@@ -10116,7 +10151,7 @@ window.__ModuleLoader__.load({ id: "dshmarket", factory: (require) => {
 															title: t("upToDate"),
 															children: t("upToDate")
 														}),
-														!missing && name !== "dsh-market" && name !== "dshmarket" && (removingName === name ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+														!missing && marketOwned && name !== "dsh-market" && name !== "dshmarket" && (removingName === name ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 															variant: "outline",
 															size: "sm",
 															className: Market_module_css_default.dangerBtn,

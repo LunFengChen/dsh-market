@@ -28,7 +28,7 @@ import {
   BOOT_ID, cancelActive, probePnpm, progress, provisionPnpm, runDshPlugin, TARGET_RE,
   type PluginCommandRuntime,
 } from './dsh-cli.ts'
-import { addProfileBundle, dropFromManifest, hasLoadableEntry, holdsNativeAddon, INBOX_BUNDLES, isDshProfileName, profileDir, readInstalled, readInstalledManifest, readInstalledRepoEvidence, readInstalledVersion, readLockCommits, readProfileBundles, readProfileManifestSnapshot, removeProfileBundle, restoreProfileManifest, setAllowBuilds, type ProfileManifestSnapshot } from './profile.ts'
+import { addProfileBundle, dropFromManifest, hasLoadableEntry, holdsNativeAddon, INBOX_BUNDLES, isDshProfileName, profileDir, readInstalled, readInstalledManifest, readInstalledRepoEvidence, readInstalledVersion, readLockCommits, readPrebundledPlugins, readProfileBundles, readProfileManifestSnapshot, removeProfileBundle, restoreProfileManifest, setAllowBuilds, type ProfileManifestSnapshot } from './profile.ts'
 import { assessProfile, classifyPeer, introducedDuplicateNames, introducedRisks, type CompatibilityRisk } from './compatibility.ts'
 import { runningAgentIds, type AgentsLookup } from './agents.ts'
 import { analyzeProfile, corePackageNames, type DuplicateName } from './check.ts'
@@ -1610,6 +1610,7 @@ export function mountMarketRoutes(
         }
         await dropStaleHotMounts()
         const installed = readInstalled(config.profile, activeProfileDir)
+        const prebundled = readPrebundledPlugins(config.profile, activeProfileDir)
         const repoIdentities: Record<string, string[]> = {}
         const repoHints: Record<string, string[]> = {}
         for (const [name, spec] of Object.entries(installed)) {
@@ -1617,7 +1618,7 @@ export function mountMarketRoutes(
           if (evidence.identities.length > 0) repoIdentities[name] = evidence.identities
           if (evidence.hints.length > 0) repoHints[name] = evidence.hints
         }
-        const present = Object.keys(installed).filter(
+        const present = [...new Set([...Object.keys(installed), ...Object.keys(prebundled)])].filter(
           name => readInstalledVersion(config.profile, name, activeProfileDir) !== null,
         )
         // User-patch-layer state (port of dsh-plugin-hub): rows the user
@@ -1642,6 +1643,7 @@ export function mountMarketRoutes(
         sendJson(response, 200, {
           profile: config.profile,
           installed,
+          prebundled,
           repoIdentities,
           repoHints,
           present,

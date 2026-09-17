@@ -8,7 +8,7 @@ import { DIST_TAG, type Channel } from './channels.ts'
 import { resolveHeadCommit } from './accelerate.ts'
 import { marketFetch } from './net.ts'
 import { activeRegion } from './regions.ts'
-import { profileDir, readInstalled, readInstalledVersion, readLockCommits } from './profile.ts'
+import { profileDir, readInstalled, readInstalledVersion, readLockCommits, readPrebundledPlugins } from './profile.ts'
 import { githubCommitOfTarget, githubRefOfTarget, repoOfTarget } from './sources.ts'
 
 export interface UpdateStatus {
@@ -268,7 +268,10 @@ export async function checkUpdates(
   if (!force && updatesCache?.key === cacheKey && Date.now() - updatesCache.at < UPDATES_TTL_MS) {
     return updatesCache.data
   }
-  const installed = readInstalled(profile, activeProfileDir)
+  const installed = {
+    ...readPrebundledPlugins(profile, activeProfileDir),
+    ...readInstalled(profile, activeProfileDir),
+  }
   const lockCommits = readLockCommits(profile, activeProfileDir)
   const result: Record<string, UpdateStatus> = {}
   await Promise.all(Object.entries(installed).map(async ([name, spec]) => {

@@ -97,16 +97,37 @@ export type HostCompatibilityMap = Record<string, HostCompatibility>
 /** Profile dependency map: package name → install spec. */
 export type InstalledMap = Record<string, string>
 
+/** Unscoped aliases so `@scope/dsh-foo` matches a registry entry named `dsh-foo`. */
+function catalogPresenceNames(names: readonly string[]): string[] {
+  const aliases: string[] = []
+  for (const name of names) {
+    aliases.push(name)
+    if (!name.startsWith('@')) continue
+    const slash = name.indexOf('/')
+    if (slash <= 1 || slash >= name.length - 1) continue
+    aliases.push(name.slice(slash + 1))
+  }
+  return aliases
+}
+
 /**
- * Add active profile Bundles as presence-only catalog entries.
+ * Add active profile Bundles and prebundled catalog packages as presence-only
+ * catalog entries.
  *
  * The returned map is for catalog matching only. Update and uninstall flows
- * must keep using the dependency-only map because a Bundle supplied by the
- * dsh installation is not owned by the profile package manager.
+ * must keep using the dependency-only map because a Bundle or prebundled
+ * plugin supplied by the dsh installation is not owned by the profile
+ * package manager. Presence specs are `*` so a LunFengChen fork still
+ * matches the registry entry for the same unscoped name.
  */
-export function installedForCatalog(installed: InstalledMap, bundles: readonly string[]): InstalledMap {
+export function installedForCatalog(
+  installed: InstalledMap,
+  bundles: readonly string[],
+  prebundled: readonly string[] = [],
+): InstalledMap {
   return Object.fromEntries([
     ...bundles.map(name => [name, '*'] as const),
+    ...catalogPresenceNames(prebundled).map(name => [name, '*'] as const),
     ...Object.entries(installed),
   ])
 }

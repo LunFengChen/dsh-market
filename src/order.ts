@@ -23,6 +23,9 @@ export const INBOX_BUNDLES = new Set([
   '@deepseek-ai/dsh-base',
   '@deepseek-ai/dsh-web-app',
   '@deepseek-ai/dsh-headless',
+  '@x1a0f3n9/dsh-base',
+  '@x1a0f3n9/dsh-web-app',
+  '@x1a0f3n9/dsh-headless',
 ])
 
 /**

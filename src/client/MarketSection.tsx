@@ -1488,6 +1488,7 @@ export function MarketSection(props: MarketSectionProps) {
   const [exportError, setExportError] = useState<string | null>(null)
   /** Bundle-only plugin names from /dsh-market/installed (picker list). */
   const [installedBundles, setInstalledBundles] = useState<string[]>([])
+  const [prebundled, setPrebundled] = useState<InstalledMap>({})
   const bodyRef = useRef<HTMLDivElement | null>(null)
   /** Hidden file input behind the Import button (a Button can't host an <input>). */
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -1543,6 +1544,7 @@ export function MarketSection(props: MarketSectionProps) {
       .then(res => res.json())
       .then(body => {
         setInstalled(body.installed || {})
+        setPrebundled(installedMap(body.prebundled))
         setRepoIdentities(installedRepoIdentities(body.repoIdentities))
         setRepoHints(installedRepoHints(body.repoHints))
         setInstalledFiles(Array.isArray(body.present) ? body.present : Object.keys(body.installed || {}))
@@ -1578,8 +1580,8 @@ export function MarketSection(props: MarketSectionProps) {
 
   /** Active Bundles count as installed in Discover without becoming package-manager targets. */
   const catalogInstalled = useMemo(
-    () => installedForCatalog(installed, installedBundles),
-    [installed, installedBundles],
+    () => installedForCatalog(installed, installedBundles, Object.keys(prebundled)),
+    [installed, installedBundles, prebundled],
   )
   /** Lookup set for the persisted disable list (#60). */
   const disabledSet = useMemo(() => new Set(disabledNames), [disabledNames])
@@ -3233,7 +3235,9 @@ export function MarketSection(props: MarketSectionProps) {
   const hostPendingNames = Object.keys(activations).filter(name => activations[name]?.state === 'restart')
   const showHostPending = hostPendingNames.length > 0 && !restartNoticeDismissed && sessionPendingRestart === 0
   const pendingRestart = sessionPendingRestart > 0 ? sessionPendingRestart : (showHostPending ? hostPendingNames.length : 0)
-  const displayedInstalled = pendingBackup === null ? installed : { ...pendingDependencies, ...installed }
+  const displayedInstalled = pendingBackup === null
+    ? { ...prebundled, ...installed }
+    : { ...prebundled, ...pendingDependencies, ...installed }
   const missingRestoreCount = Object.keys(pendingDependencies).filter(name => !installedFiles.includes(name)).length
   // Self-update lives in the header button and the settings card, not this
   // tab's row list (the market itself is filtered out below) — so a pending
@@ -4583,6 +4587,7 @@ export function MarketSection(props: MarketSectionProps) {
                             })}
                             render={([name, spec]) => {
                             const missing = pendingBackup !== null && !installedFiles.includes(name)
+                            const marketOwned = Object.hasOwn(installed, name)
                             const entry = data === null ? undefined : catalogEntryForInstalled(data.plugins, name, String(spec), repoIdentities[name], repoHints[name])
                             const status = updates[name]
                             const localDev = /^(?:link|file):/i.test(String(spec)) || status?.kind === 'linked'
@@ -4827,7 +4832,7 @@ export function MarketSection(props: MarketSectionProps) {
                                     — already ellipsizing since #234 — is what gives up
                                     width first. */}
                                 <span className={css.irowTrailing}>
-                                {!missing && status?.sourceMigration !== undefined && (
+                                {!missing && marketOwned && status?.sourceMigration !== undefined && (
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -4835,7 +4840,9 @@ export function MarketSection(props: MarketSectionProps) {
                                     onClick={() => askSourceMigration(name)}
                                   >{t('migrateNpm')}</Button>
                                 )}
-                                {missing
+                                {!marketOwned && !missing
+                                  ? <span className={css.metaTag}>{t('prebundledBadge')}</span>
+                                  : missing
                                   ? <span className={css.metaTag}>{t('notInstalled')}</span>
                                   : updatedNames.includes(name)
                                     ? <span className={`${css.metaTag} ${css.metaTagOk}`}>{act?.state === 'live' ? t('updatedLive') : t('updated')}</span>
@@ -4866,7 +4873,7 @@ export function MarketSection(props: MarketSectionProps) {
                                               >{t('restore')}</button>
                                             )
                                           : <span className={css.metaTag} title={t('upToDate')}>{t('upToDate')}</span>}
-                                {!missing && name !== 'dsh-market' && name !== 'dshmarket' && (
+                                {!missing && marketOwned && name !== 'dsh-market' && name !== 'dshmarket' && (
                                   removingName === name
                                     ? <Button variant="outline" size="sm" className={css.dangerBtn} disabled>{t('uninstalling')}</Button>
                                     : (

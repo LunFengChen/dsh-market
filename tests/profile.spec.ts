@@ -10,7 +10,7 @@ import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { resolveDshHome } from '../src/home-paths.ts'
 import {
   addProfileBundle, conflictingEntryIds, dropFromManifest, entryArtifactExists, hasDshManifest, hasLoadableEntry, holdsNativeAddon, isDshProfileName, pluginSubdirs, profileDir,
-  readInstalled, readInstalledManifest, readInstalledRepoEvidence, readInstalledRepoIdentities, readInstalledVersion, readLockCommits,
+  readInstalled, readInstalledManifest, readInstalledRepoEvidence, readInstalledRepoIdentities, readInstalledVersion, readLockCommits, readPrebundledPlugins,
   removeProfileBundle,
 } from '../src/profile.ts'
 
@@ -88,6 +88,7 @@ describe('readInstalled', () => {
       '@deepseek-ai/dsh-base': 'latest',
       '@deepseek-ai/dsh-web-app': 'latest',
       '@deepseek-ai/dsh-headless': 'latest',
+      '@x1a0f3n9/dsh-web-app': 'latest',
       // Community plugin published under the official scope (github source).
       '@deepseek-ai/dsh-security-audit': 'github:omdsh-dev/dsh-security-audit',
       dshmarket: '^1.2.3',
@@ -97,6 +98,44 @@ describe('readInstalled', () => {
       '@deepseek-ai/dsh-security-audit': 'github:omdsh-dev/dsh-security-audit',
       dshmarket: '^1.2.3',
     })
+  })
+})
+
+describe('readPrebundledPlugins', () => {
+  it('reads catalog plugins from selected bundle manifests', () => {
+    const dir = writeProfile({
+      dependencies: {},
+      dsh: { profile: { bundles: ['@x1a0f3n9/dsh-web-app'] } },
+    })
+    const bundleDir = join(dir, 'node_modules', '@x1a0f3n9', 'dsh-web-app')
+    mkdirSync(bundleDir, { recursive: true })
+    writeFileSync(join(bundleDir, 'package.json'), JSON.stringify({
+      name: '@x1a0f3n9/dsh-web-app',
+      dependencies: {
+        '@x1a0f3n9/dsh-session-timeline': 'github:LunFengChen/dsh-session-timeline#v0.1.0',
+        'dsh-context': 'github:LunFengChen/dsh-context#v0.49.6',
+        leftover: '^1.0.0',
+      },
+      dsh: {
+        bundle: {
+          plugins: [
+            { packageName: '@x1a0f3n9/dsh-session-timeline' },
+            { packageName: 'dsh-context' },
+            { packageName: 'missing-dep' },
+            { packageName: 12 },
+          ],
+        },
+      },
+    }))
+    expect(readPrebundledPlugins('web')).toEqual({
+      '@x1a0f3n9/dsh-session-timeline': 'github:LunFengChen/dsh-session-timeline#v0.1.0',
+      'dsh-context': 'github:LunFengChen/dsh-context#v0.49.6',
+    })
+  })
+
+  it('returns an empty map when the bundle package is absent', () => {
+    writeProfile({ dsh: { profile: { bundles: ['@x1a0f3n9/dsh-web-app'] } } })
+    expect(readPrebundledPlugins('web')).toEqual({})
   })
 })
 
