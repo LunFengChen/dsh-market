@@ -140,7 +140,7 @@ export function marketVersion(): string {
 }
 
 /** The market's own package names, as they appear in a profile manifest. */
-const SELF_NAMES = new Set(['dshmarket', 'dsh-market'])
+const SELF_NAMES = new Set(['@x1a0f3n9/dshmarket', 'dshmarket', 'dsh-market'])
 
 /**
  * Rebuild a GitHub target for an update.

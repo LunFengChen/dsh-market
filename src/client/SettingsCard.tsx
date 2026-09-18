@@ -37,7 +37,7 @@ import { createElement as h, Fragment, useCallback, useEffect, useRef, useState 
 import type { ReactElement } from 'react'
 import { Button, IconChevronDownOutline14, IconLoadingOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import css from './Market.module.css'
-import { api, applyGithubRouting } from './market-data.ts'
+import { api, applyGithubRouting, MARKET_PACKAGE_NAMES } from './market-data.ts'
 import type { MarketStatus } from './market-data.ts'
 import type { Translate } from './market-data.ts'
 
@@ -236,7 +236,8 @@ export function SettingsCard({ t, onRemoved }: SettingsCardProps): ReactElement 
       try {
         const response = await fetch(api('/dsh-market/updates'), { cache: 'no-store' })
         const body = (await response.json()) as { updates?: Record<string, RawUpdate> }
-        const own = body.updates?.['dshmarket'] ?? body.updates?.['dsh-market']
+        const ownName = MARKET_PACKAGE_NAMES.find(name => body.updates?.[name] !== undefined)
+        const own = ownName === undefined ? undefined : body.updates?.[ownName]
         if (live && own !== undefined) setUpdate(readUpdate(own))
       } catch { /* an update check that fails leaves the row without an offer */ }
     })()
@@ -260,7 +261,7 @@ export function SettingsCard({ t, onRemoved }: SettingsCardProps): ReactElement 
     void (async () => {
       try {
         const body = await post(api('/dsh-market/update'), {
-          name: 'dshmarket',
+          name: '@x1a0f3n9/dshmarket',
           ...(update?.restoreRequired === true ? { restore: true } : {}),
           ...(force ? { force: true } : {}),
         }) as {

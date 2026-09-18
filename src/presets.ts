@@ -29,7 +29,7 @@ const PRESET_NAME_RE = /^[\p{L}\p{N}_ -]{1,40}$/u
  * applying (issue #98 analysis: applyPreset self-disable guard). They are
  * filtered at save/import time and again at apply time (defense in depth).
  */
-const MARKET_SELF_NAMES = new Set(['dsh-market', 'dshmarket'])
+const MARKET_SELF_NAMES = new Set(['@x1a0f3n9/dshmarket', 'dsh-market', 'dshmarket'])
 
 /** Maximum presets stored per profile (quota — issue #98 analysis). */
 export const MAX_PRESETS = 50

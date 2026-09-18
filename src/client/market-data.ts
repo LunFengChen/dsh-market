@@ -343,8 +343,19 @@ export interface ListQuery {
  * — this is purely "a store has no reason to sell itself to someone already
  * standing in it."
  */
+export const MARKET_PACKAGE_NAMES = ['@x1a0f3n9/dshmarket', 'dshmarket', 'dsh-market'] as const
+
+export function marketSelfInstallName(installed: Record<string, unknown>): string {
+  for (const name of MARKET_PACKAGE_NAMES) {
+    if (installed[name] !== undefined) return name
+  }
+  return '@x1a0f3n9/dshmarket'
+}
+
 export function isMarketItself(plugin: Pick<RegistryPlugin, 'name' | 'npm'>): boolean {
-  return plugin.name === 'dsh-market' || plugin.npm === 'dshmarket'
+  return plugin.name === 'dsh-market'
+    || plugin.npm === 'dshmarket'
+    || plugin.npm === '@x1a0f3n9/dshmarket'
 }
 
 /**

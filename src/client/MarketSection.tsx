@@ -42,7 +42,7 @@ import type { OperationRecord } from './operations.ts'
 import { Diagnostics } from './Diagnostics.tsx'
 import { exportMarketLog } from './self-check.ts'
 import {
-  api, applyGithubRouting, avatarColor, catalogEntryForInstalled, entryForDep, githubRouteCandidates, groupSwitchState, humanOutput, installedForCatalog, isInstalled, looksTerminal, matchInstalledName, orderedCategories, pluginCategories,
+  api, applyGithubRouting, avatarColor, catalogEntryForInstalled, entryForDep, githubRouteCandidates, groupSwitchState, humanOutput, installedForCatalog, isInstalled, looksTerminal, marketSelfInstallName, matchInstalledName, orderedCategories, pluginCategories,
   formatCount, pageItems, pluginName, pluginScreenshotCandidates, pluginScreenshots, pluginsForFavorites, rankThemeScreenshots, readSession, rememberGithubRoute, resetScreenshotsCache, resolveCatalogRestore, safeScreenshots, staleFavoriteUrls, themePlugins as themePluginsOf, themeSwatch, TIME_RANGE_DAYS, visiblePlugins,
 } from './market-data.ts'
 import type {
@@ -2962,7 +2962,7 @@ export function MarketSection(props: MarketSectionProps) {
 
   // The market itself stays out of the batch: its update reloads this page
   // mid-run, which would strand the remaining items.
-  const selfName = installed['dshmarket'] !== undefined ? 'dshmarket' : 'dsh-market'
+  const selfName = marketSelfInstallName(installed)
   const updatableNames = Object.keys(installed).filter(
     name => name !== selfName && !updatedNames.includes(name) && updates[name] && updates[name].updateAvailable,
   )
@@ -3726,10 +3726,10 @@ export function MarketSection(props: MarketSectionProps) {
           {/* A quiet pointer back to the project — most visitors reach the
               market through a client that embeds it, with no other way to
               find the repo it came from. */}
-          <a className={css.repoLink} href="https://github.com/dsh-market/dsh-market" target="_blank" rel="noreferrer" title="dsh-market · GitHub">dsh-market</a>
+          <a className={css.repoLink} href="https://github.com/LunFengChen/dsh-market" target="_blank" rel="noreferrer" title="dsh-market · GitHub">dsh-market</a>
           {version !== null && <span className={css.version} title={t('versionHint')}>v{version}</span>}
           {(() => {
-            const self = installed['dshmarket'] !== undefined ? 'dshmarket' : 'dsh-market'
+            const self = marketSelfInstallName(installed)
             const status = updates[self]
             return status && status.updateAvailable && !updatedNames.includes(self)
               && !ignoredUpdateSet.has(self)
