@@ -77,16 +77,9 @@ if (!NAMESPACE_PATTERN.test(MARKET_SETTINGS_NS)) {
  * a type for it on every supported host, and naming only what is called
  * keeps this from breaking again when a neighbouring field moves.
  */
-interface SettingsScope {
-  get: () => MarketSettings
-  watch: (listener: () => void) => void
-}
 interface SettingsService {
-  register: (
-    ns: string,
-    schema: z<MarketSettings>,
-    options: { base: MarketSettings },
-  ) => SettingsScope
+  describe: () => Array<{ ns: string; value?: Partial<MarketSettings> }>
+  configure?: (presentation: { auto?: boolean }, owner?: unknown) => () => void
 }
 
 /** The market settings a user may edit at runtime. */
@@ -94,8 +87,12 @@ export interface MarketSettings {
   allowRestart: boolean
 }
 
+function live<T>(schema: z<T>): z<T> {
+  return (schema as z<T> & { extra(key: string, value: boolean): z<T> }).extra('volatile', true)
+}
+
 export const MarketSettings: z<MarketSettings> = z.object({
-  allowRestart: z.boolean().default(true),
+  allowRestart: live(z.boolean().default(true)),
 })
 
 /**
@@ -111,31 +108,30 @@ export const MarketSettings: z<MarketSettings> = z.object({
  * @param resolved - the live config object the routes read.
  */
 export function installMarketSettings(ctx: Context, resolved: { allowRestart?: boolean }): void {
-  // The switch must show what the routes will actually DO, which since #229
-  // is not simply "unset means on": under a detected supervisor an unset
-  // value means off, because the supervisor owns restarts. Asking
-  // restartAllowed() rather than re-deriving it here is what keeps the two
-  // from drifting — a switch showing On beside a hidden button is the same
-  // class of confusion the detection exists to end.
   const entry = { allowRestart: restartAllowed(resolved) }
-  let source = (): MarketSettings => entry
-  // Assigns ONLY what this namespace owns. Writing back a field the market
-  // stores elsewhere is how the channel lost its memory.
-  const apply = (): void => { resolved.allowRestart = source().allowRestart }
+  const applyFrom = (value: Partial<MarketSettings> | undefined): void => {
+    if (typeof value?.allowRestart === 'boolean') resolved.allowRestart = value.allowRestart
+    else resolved.allowRestart = entry.allowRestart
+  }
 
-  // `inject` is the graceful-degradation boundary: on a host with no
-  // settings service the callback never runs and the composed entry stands.
   ctx.inject(['settings'], (scopedCtx: Context) => {
     const scoped = scopedCtx as unknown as Context & { settings: SettingsService }
-    const scope = scoped.settings.register(MARKET_SETTINGS_NS, MarketSettings, { base: entry })
-    source = () => scope.get()
-    // Unload restores the composed entry, so a disabled section cannot leave
-    // the routes reading a value nobody can see or change any more.
-    scoped.effect(() => () => {
-      source = () => entry
-      apply()
+    if (typeof scoped.settings.describe !== 'function') return
+    if (typeof scoped.settings.configure === 'function') {
+      scoped.settings.configure({ auto: false }, ctx.fiber)
+    }
+    const read = (): void => {
+      const row = scoped.settings.describe().find(candidate => candidate.ns === MARKET_SETTINGS_NS)
+      applyFrom(row?.value)
+    }
+    read()
+    const onUpdated = scopedCtx.on as (event: string, listener: (ns: string) => void) => () => void
+    const dispose = onUpdated('settings/document-updated', (ns) => {
+      if (ns === MARKET_SETTINGS_NS) read()
     })
-    apply()
-    scope.watch(apply)
+    scoped.effect(() => () => {
+      dispose()
+      applyFrom(entry)
+    })
   })
 }

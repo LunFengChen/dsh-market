@@ -6,13 +6,21 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { createDesktopPluginRuntime, type DesktopPnpmLike } from './dsh-cli.ts'
 import { mountMarketRoutes, type MarketConfig, type MarketHost } from './routes.ts'
-import { installMarketSettings } from './settings.ts'
+import { installMarketSettings, MarketSettings } from './settings.ts'
+import z from '@deepseek-ai/schemastery'
 import type { AgentsServiceLike } from './agents.ts'
 
 export const name = 'dsh-market'
 
 /** Optional cordis.yml configuration; profile defaults to `web`. */
 export type Config = Partial<Pick<MarketConfig, 'profile' | 'allowRestart' | 'maxSnapshots'>>
+
+/** Cordis Config schema owned by this plugin's profile row. */
+export const Config: z<Config> = z.object({
+  profile: z.string(),
+  allowRestart: MarketSettings.dict!.allowRestart,
+  maxSnapshots: z.number().step(1).min(0),
+})
 
 /** Structural subset of DSH Desktop's public `desktopProfiles` contract. */
 interface DesktopProfilesLike {
